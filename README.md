@@ -7,19 +7,20 @@ NanoLoc is a lightweight, format-agnostic localization (i18n) management platfor
 
 ## ✨ Features
 
-- **Project Management**: Create multiple projects with independent configurations (Base Language, Target Languages, AI Settings).
-- **Format Support**:
-  - **Import**: Seamlessly import Android `strings.xml` files.
-  - **Conflict Resolution**: Automatically detects existing keys. Updates values and archives old content to `remarks`.
-- **Localization Workflow**:
-  - **Inline Editing**: Edit translations, keys, and remarks directly in the table.
-  - **AI Translation**:
-    - **Single Term**: Translate individual cells using the "Magic Wand" button.
-    - **Batch Translation**: Automatically find missing translations and bulk-translate them (20 items/batch).
-  - **Smart Copy**: Copy base language content to all empty target slots.
-  - **Search**: Global search across keys, values, and remarks.
-- **Modern UI**: Built with **Next.js 15**, **Tailwind CSS v4**, and **Shadcn UI**.
-- **Secure**: User authentication via NextAuth.js (Email/Password).
+For a detailed breakdown of all features, please see [Feature Documentation](./FEATURES.md).
+
+- **Project Management**: Multi-project support with flexible language and AI configurations.
+- **Data Integration**:
+  - **Import**: Android `strings.xml` support with smart conflict resolution.
+  - **Export**: CSV export with Excel compatibility (BOM) and robust error handling.
+- **Advanced Localization**:
+  - **AI Translation**: Batch, Row, Column, and Single-cell modes powered by LLMs.
+  - **Audit**: Track "Last Modified By" for every translation.
+  - **Context**: Remarks field with tooltip support for better translator context.
+- **Modern UI**:
+  - **Real-time Status**: Global "Translating..." indicator prevents conflicts.
+  - **Efficiency**: Sticky columns, server-side pagination (50 items/page), and instant search.
+- **Security**: Secure authentication via NextAuth.js.
 
 ## 🛠 Tech Stack
 
