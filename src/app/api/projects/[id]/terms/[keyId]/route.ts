@@ -17,8 +17,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     });
 
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    const hasAccess = project.users.some(u => u.email === session.user?.email);
-    if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const user = project.users.find(u => u.email === session.user?.email);
+    if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     try {
         const body = await request.json();
@@ -36,7 +36,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                     where: { id: keyId },
                     data: {
                         stringName,
-                        remarks
+                        remarks,
+                        lastModifiedById: user.id // Audit
                     }
                 });
             }
@@ -55,11 +56,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                                 languageCode: lang
                             }
                         },
-                        update: { content },
+                        update: {
+                            content,
+                            lastModifiedById: user.id // Audit 
+                        },
                         create: {
                             translationKeyId: keyId,
                             languageCode: lang,
-                            content
+                            content,
+                            lastModifiedById: user.id // Audit
                         }
                     });
                 }

@@ -14,12 +14,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Verify access
     const project = await prisma.project.findUnique({
         where: { id: projectId },
-        include: { users: true }
+        include: { users: { select: { email: true, id: true } } }
     });
 
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const hasAccess = project.users.some(u => u.email === session.user?.email);
-    if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const user = project.users.find(u => u.email.toLowerCase() === session.user?.email?.toLowerCase());
+    if (!user) {
+        console.error(`Import Forbidden: User ${session.user?.email} not found in project ${projectId}. Project users: ${project.users.map(u => u.email).join(', ')}`);
+        return NextResponse.json({ error: "Forbidden: User not found in project" }, { status: 403 });
+    }
 
     try {
         const formData = await request.formData();
@@ -65,13 +68,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
                         await prisma.translationValue.update({
                             where: { id: baseValue.id },
-                            data: { content }
+                            data: {
+                                content,
+                                lastModifiedById: user.id // Audit
+                            }
                         });
 
                         await prisma.translationKey.update({
                             where: { id: existingKey.id },
                             data: {
-                                remarks: existingKey.remarks ? existingKey.remarks + "\n" + newRemark : newRemark
+                                remarks: existingKey.remarks ? existingKey.remarks + "\n" + newRemark : newRemark,
+                                lastModifiedById: user.id // Audit
                             }
                         });
                         updated++;
@@ -84,7 +91,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                         data: {
                             translationKeyId: existingKey.id,
                             languageCode: project.baseLanguage,
-                            content
+                            content,
+                            lastModifiedById: user.id // Audit
                         }
                     });
                     updated++;
@@ -93,12 +101,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 // New Key
                 await prisma.translationKey.create({
                     data: {
-                        projectId,
+                        projectId, // Use 'id' here
                         stringName,
+                        lastModifiedById: user.id, // Audit
                         values: {
                             create: {
                                 languageCode: project.baseLanguage,
-                                content
+                                content,
+                                lastModifiedById: user.id // Audit
                             }
                         }
                     }

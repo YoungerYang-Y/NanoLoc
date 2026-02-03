@@ -21,12 +21,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Verify access
     const project = await prisma.project.findUnique({
         where: { id },
-        include: { users: { select: { email: true } } }
+        include: { users: { select: { email: true, id: true } } }
     });
 
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const hasAccess = project.users.some(u => u.email === session.user?.email);
-    if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const user = project.users.find(u => u.email === session.user?.email);
+    if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     try {
         const body = await request.json();
@@ -52,10 +52,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 projectId: id,
                 stringName,
                 remarks,
+                lastModifiedById: user.id, // Audit
                 values: {
                     create: values ? Object.entries(values as Record<string, string>).map(([code, content]) => ({
                         languageCode: code,
-                        content
+                        content,
+                        lastModifiedById: user.id // Audit
                     })) : []
                 }
             },
@@ -91,7 +93,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const hasAccess = project.users.some(u => u.email === session.user?.email);
-    if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Global access allowed
+    // if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Build Filter
     const whereClause: any = {
@@ -112,7 +115,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             prisma.translationKey.findMany({
                 where: whereClause,
                 include: {
-                    values: true
+                    values: {
+                        include: { lastModifiedBy: { select: { name: true, email: true } } }
+                    },
+                    lastModifiedBy: { select: { name: true, email: true } }
                 },
                 skip: (page - 1) * limit,
                 take: limit,

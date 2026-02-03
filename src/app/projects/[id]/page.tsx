@@ -1,36 +1,24 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useIsMutating } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Project } from '@/types';
+import { Project, TranslationKey } from '@/types';
 import { TermRow } from './components/TermRow';
 import { CreateTermRow } from './components/CreateTermRow';
 import { BatchTranslateButton } from './components/BatchTranslateButton';
-import { EditProjectDialog } from '@/components/EditProjectDialog';
+// import { EditProjectDialog } from '@/components/EditProjectDialog'; // Deleted
 import { UserNav } from '@/components/UserNav';
-import { Search, Upload, Plus, ChevronLeft, ChevronRight, Home, X, ChevronsLeft, ChevronsRight, Wand2 } from 'lucide-react';
+import { Search, Upload, Plus, ChevronLeft, ChevronRight, Home, X, ChevronsLeft, ChevronsRight, Wand2, Settings, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { LANGUAGES } from '@/lib/constants/languages';
 
-interface TranslationValue {
-    id: string;
-    languageCode: string;
-    content: string;
-}
-
-interface TranslationKey {
-    id: string;
-    stringName: string;
-    remarks: string | null;
-    values: TranslationValue[];
-    updatedAt: string;
-}
-
+// Local interfaces removed, using global types
 interface TermsResponse {
     data: TranslationKey[];
     meta: {
@@ -41,19 +29,29 @@ interface TermsResponse {
     };
 }
 
+// Helper to format language
+const getLangDisplay = (code: string) => {
+    const lang = LANGUAGES.find(l => l.code === code);
+    return lang ? `${lang.name} (${lang.localName}) - ${code}` : code;
+};
+
 export default function ProjectDetailPage() {
     const params = useParams();
     const projectId = params.id as string;
     const queryClient = useQueryClient();
 
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(20);
+    const [limit, setLimit] = useState(50);
     const [search, setSearch] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Global busy state
+    const mutationCount = useIsMutating();
+    const isTranslating = mutationCount > 0;
+
     // Fetch Project Info
-    const { data: projectData } = useQuery<{ project: Project }>({
+    const { data: projectData, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery<{ project: Project }>({
         queryKey: ['project', projectId],
         queryFn: async () => {
             const res = await fetch(`/api/projects/${projectId}`);
@@ -91,7 +89,10 @@ export default function ProjectDetailPage() {
                 method: 'POST',
                 body: formData,
             });
-            if (!res.ok) throw new Error('Import failed');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `Import failed with status ${res.status}`);
+            }
             return res.json();
         },
         onSuccess: (data) => {
@@ -116,10 +117,8 @@ export default function ProjectDetailPage() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleColumnTranslate = async (lang: string) => {
-        if (!confirm(`Are you sure you want to translate all missing '${lang}' values? This will consume AI tokens.`)) return;
-
-        const promise = (async () => {
+    const columnTranslateMutation = useMutation({
+        mutationFn: async (lang: string) => {
             const res = await fetch(`/api/projects/${projectId}/batch-translate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -127,14 +126,24 @@ export default function ProjectDetailPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Translation failed');
-            return data;
-        })();
+            return { data, lang };
+        },
+        onSuccess: ({ data, lang }) => {
+            queryClient.invalidateQueries({ queryKey: ['terms', projectId] });
+        },
+        onError: (err) => {
+            // Error handled in promise/toast usually, but we need to ensure it bubbles if using mutateAsync
+        }
+    });
+
+    const handleColumnTranslate = async (lang: string) => {
+        if (!confirm(`Are you sure you want to translate all missing '${lang}' values? This will consume AI tokens.`)) return;
+
+        const promise = columnTranslateMutation.mutateAsync(lang);
 
         toast.promise(promise, {
             loading: `Translating ${lang}...`,
-            success: (data) => {
-                queryClient.invalidateQueries({ queryKey: ['terms', projectId] });
-                // Assuming data.translated[lang] exists
+            success: ({ data, lang }) => {
                 const count = data.translated ? data.translated[lang] : 0;
                 return `Translated ${count} terms for ${lang}`;
             },
@@ -143,7 +152,15 @@ export default function ProjectDetailPage() {
     };
 
     return (
-        <main className="mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8 py-8">
+        <main className="mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8 py-8 relative">
+            {/* Global Busy Indicator */}
+            {isTranslating && (
+                <div className="fixed top-0 left-0 right-0 z-[100] bg-orange-600 text-white px-4 py-3 shadow-lg font-medium animate-pulse flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-lg">Translating in progress... Please do not perform any operations.</span>
+                </div>
+            )}
+
             {/* Header */}
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -156,12 +173,23 @@ export default function ProjectDetailPage() {
                     </div>
                     <div className="flex items-baseline gap-4">
                         <h1 className="text-3xl font-bold tracking-tight text-white">
-                            {project?.name || 'Loading...'}
+                            {isProjectError ? (
+                                <span className="text-red-500 text-xl">Error: {projectError?.message || 'Failed to load'}</span>
+                            ) : isLoadingProject ? (
+                                'Loading...'
+                            ) : (
+                                project?.name
+                            )}
                         </h1>
                         <Badge variant="outline" className="text-gray-400 border-gray-600">
                             {project?.baseLanguage || 'en-US'}
                         </Badge>
-                        {project && <EditProjectDialog project={project} />}
+                        <Button variant="outline" size="sm" asChild className="text-gray-300 border-gray-600 hover:bg-gray-800 hover:text-white gap-2">
+                            <Link href={`/projects/${projectId}/settings`}>
+                                <Settings className="h-4 w-4" />
+                                Settings
+                            </Link>
+                        </Button>
                     </div>
                     <p className="mt-1 text-sm text-gray-400 max-w-2xl">{project?.description}</p>
                 </div>
@@ -199,13 +227,12 @@ export default function ProjectDetailPage() {
                         <Plus className="h-4 w-4 mr-2" />
                         New Term
                     </Button>
-                    <UserNav />
                 </div>
             </div>
 
             {/* Toolbar */}
-            <div className="mb-6 flex gap-4">
-                <div className="relative flex-1 max-w-md">
+            <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-end sm:items-center">
+                <div className="relative flex-1 max-w-md w-full">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                         <Search className="h-4 w-4 text-gray-500" aria-hidden="true" />
                     </div>
@@ -216,7 +243,7 @@ export default function ProjectDetailPage() {
                         value={search}
                         onChange={(e) => {
                             setSearch(e.target.value);
-                            setPage(1); // Reset page on search
+                            setPage(1);
                         }}
                     />
                     {search && (
@@ -228,6 +255,63 @@ export default function ProjectDetailPage() {
                         </button>
                     )}
                 </div>
+
+                {/* Pagination Controls (Top Right) */}
+                {termsData?.meta && (
+                    <div className="flex items-center gap-4 bg-gray-900 p-2 rounded-md border border-gray-700 shadow-sm shrink-0">
+                        <span className="text-sm text-gray-400 hidden lg:inline-block">
+                            {(page - 1) * limit + 1}-{Math.min(page * limit, termsData.meta.total)} of {termsData.meta.total}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setPage(1)}
+                                    disabled={page === 1 || isLoading}
+                                    className="h-8 w-8 text-gray-400 hover:text-white"
+                                    title="First Page"
+                                >
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1 || isLoading}
+                                    className="h-8 w-8 text-gray-400 hover:text-white"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <span className="flex items-center px-2 text-gray-300 text-sm font-medium min-w-[3rem] justify-center">
+                                    {page} / {termsData.meta.totalPages}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setPage(p => Math.min(termsData.meta.totalPages, p + 1))}
+                                    disabled={page === termsData.meta.totalPages || isLoading}
+                                    className="h-8 w-8 text-gray-400 hover:text-white"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setPage(termsData.meta.totalPages)}
+                                    disabled={page === termsData.meta.totalPages || isLoading}
+                                    className="h-8 w-8 text-gray-400 hover:text-white"
+                                    title="Last Page"
+                                >
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Table */}
@@ -236,18 +320,22 @@ export default function ProjectDetailPage() {
                     <Table>
                         <TableHeader className="bg-gray-800">
                             <TableRow className="border-gray-700 hover:bg-gray-800">
-                                <TableHead className="w-[100px] bg-gray-900 border-r border-gray-800 sticky left-0 z-20">Actions</TableHead>
-                                <TableHead className="text-gray-300 w-48 min-w-[12rem]">Key</TableHead>
-                                <TableHead className="text-gray-300 min-w-[12rem]">Remarks</TableHead>
-                                <TableHead className="text-gray-300 w-64 min-w-[16rem]">{project?.baseLanguage || 'Base'}</TableHead>
+                                <TableHead className="w-[100px] min-w-[100px] bg-gray-900 border-r border-gray-800 sticky left-0 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">Actions</TableHead>
+                                <TableHead className="w-[200px] min-w-[200px] bg-gray-900 border-r border-gray-800 sticky left-[100px] z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] text-gray-300">Key</TableHead>
+                                <TableHead className="w-[200px] min-w-[200px] bg-gray-900 border-r border-gray-800 sticky left-[300px] z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] text-gray-300">Remarks</TableHead>
+                                <TableHead className="text-gray-300 w-64 min-w-[16rem]">
+                                    {getLangDisplay(project?.baseLanguage || 'en-US')}
+                                </TableHead>
                                 {targetLangs.map((lang: string) => (
                                     <TableHead key={lang} className="text-gray-300 w-64 min-w-[16rem]">
                                         <div className="flex items-center gap-2">
-                                            {lang}
+                                            <span className="truncate" title={getLangDisplay(lang)}>
+                                                {getLangDisplay(lang)}
+                                            </span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-6 w-6 text-indigo-400 hover:text-indigo-300"
+                                                className="h-6 w-6 text-indigo-400 hover:text-indigo-300 shrink-0"
                                                 onClick={() => handleColumnTranslate(lang)}
                                                 title={`Translate all missing ${lang}`}
                                             >
@@ -295,80 +383,6 @@ export default function ProjectDetailPage() {
                     </Table>
                 </div>
             </div>
-
-            {/* Pagination */}
-            {termsData?.meta && (
-                <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-4 py-3 sm:px-6 mt-4 rounded-b-md">
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-gray-400">
-                                Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(page * limit, termsData.meta.total)}</span> of <span className="font-medium">{termsData.meta.total}</span> results
-
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <select
-                                className="bg-gray-800 border-gray-700 text-gray-300 text-sm rounded-md px-2 py-1"
-                                value={limit}
-                                onChange={(e) => {
-                                    setLimit(Number(e.target.value));
-                                    setPage(1);
-                                }}
-                            >
-                                <option value={20}>20 / page</option>
-                                <option value={50}>50 / page</option>
-                                <option value={100}>100 / page</option>
-                            </select>
-                            <div className="flex gap-1">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setPage(1)}
-                                    disabled={page === 1}
-                                    className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 w-8 h-8"
-                                    title="First Page"
-                                >
-                                    <ChevronsLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 w-8 h-8"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <span className="flex items-center px-2 text-gray-400 text-sm">
-                                    {page} / {termsData.meta.totalPages}
-                                </span>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setPage(p => Math.min(termsData.meta.totalPages, p + 1))}
-                                    disabled={page === termsData.meta.totalPages}
-                                    className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 w-8 h-8"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setPage(termsData.meta.totalPages)}
-                                    disabled={page === termsData.meta.totalPages}
-                                    className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 w-8 h-8"
-                                    title="Last Page"
-                                >
-                                    <ChevronsRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )
-            }
-        </main >
+        </main>
     );
 }

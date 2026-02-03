@@ -22,3 +22,32 @@ export interface ProjectFormData {
     aiModelId?: string;
     systemPrompt?: string;
 }
+
+export interface User {
+    id: string;
+    email: string;
+    name?: string | null;
+}
+
+export interface TranslationValue {
+    id: string;
+    languageCode: string;
+    content: string | null;
+    lastModifiedBy?: {
+        name: string | null;
+        email: string;
+    } | null;
+}
+
+export interface TranslationKey {
+    id: string;
+    stringName: string;
+    remarks: string | null;
+    values: TranslationValue[];
+    lastModifiedBy?: {
+        name: string | null;
+        email: string;
+    } | null;
+    createdAt: string;
+    updatedAt: string;
+}

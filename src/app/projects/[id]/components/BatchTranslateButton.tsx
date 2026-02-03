@@ -18,6 +18,7 @@ export function BatchTranslateButton({ projectId, targetLanguages }: BatchTransl
     const [result, setResult] = useState<Record<string, number> | null>(null);
 
     const mutation = useMutation({
+        mutationKey: ['batch-translate', projectId],
         mutationFn: async () => {
             const res = await fetch(`/api/projects/${projectId}/batch-translate`, {
                 method: 'POST',

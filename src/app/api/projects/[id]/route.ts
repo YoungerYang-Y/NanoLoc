@@ -31,11 +31,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Check access
-    const hasAccess = project.users.some(u => u.email === session.user?.email);
-    if (!hasAccess) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // Global access allowed for reading
+    // const hasAccess = project.users.some(u => u.email === session.user?.email);
+    // if (!hasAccess) {
+    //    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // }
 
     return NextResponse.json({ project });
 }

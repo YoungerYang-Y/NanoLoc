@@ -17,22 +17,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // 1. Verify Access
     const project = await prisma.project.findUnique({
         where: { id },
-        include: { users: { select: { email: true } } }
+        include: { users: { select: { email: true, id: true } } }
     });
 
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const hasAccess = project.users.some(u => u.email === session.user?.email);
-    if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const user = project.users.find(u => u.email === session.user?.email);
+    if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // 2. Parse Target Languages
     let targetLanguages: string[] = [];
     try {
-        targetLanguages = JSON.parse(project.targetLanguages || '[]');
+        const body = await request.json();
+        if (body.targetLanguages && Array.isArray(body.targetLanguages)) {
+            targetLanguages = body.targetLanguages;
+        } else {
+            targetLanguages = JSON.parse(project.targetLanguages || '[]');
+        }
+
         if (!Array.isArray(targetLanguages) || targetLanguages.length === 0) {
             return NextResponse.json({ error: "No target languages configured" }, { status: 400 });
         }
     } catch (e) {
-        return NextResponse.json({ error: "Invalid target languages configuration" }, { status: 500 });
+        return NextResponse.json({ error: "Invalid request body or configuration" }, { status: 500 });
     }
 
     const aiConfig = await getProjectAIConfig(id);
@@ -102,11 +108,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                                         languageCode: lang
                                     }
                                 },
-                                update: { content: translatedText },
+                                update: {
+                                    content: translatedText,
+                                    lastModifiedById: user.id
+                                },
                                 create: {
                                     translationKeyId: item.keyId,
                                     languageCode: lang,
-                                    content: translatedText
+                                    content: translatedText,
+                                    lastModifiedById: user.id
                                 }
                             });
                         }).filter((p): p is any => p !== null)

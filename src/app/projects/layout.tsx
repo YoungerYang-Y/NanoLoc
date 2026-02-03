@@ -1,5 +1,3 @@
-import { Header } from '@/components/Header';
-
 export default function ProjectsLayout({
     children,
 }: {
@@ -7,7 +5,6 @@ export default function ProjectsLayout({
 }) {
     return (
         <div className="min-h-screen bg-gray-900">
-            <Header />
             {children}
         </div>
     );

@@ -11,6 +11,7 @@ const createProjectSchema = z.object({
     aiBaseUrl: z.string().optional(),
     aiApiKey: z.string().optional(),
     aiModelId: z.string().optional(),
+    systemPrompt: z.string().optional(),
 });
 
 export async function GET(request: Request) {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: result.error.issues }, { status: 400 });
         }
 
-        const { name, description, baseLanguage, targetLanguages, aiBaseUrl, aiApiKey, aiModelId } = result.data;
+        const { name, description, baseLanguage, targetLanguages, aiBaseUrl, aiApiKey, aiModelId, systemPrompt } = result.data;
 
         const project = await prisma.project.create({
             data: {
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
                 aiBaseUrl,
                 aiApiKey,
                 aiModelId,
+                systemPrompt,
                 users: {
                     connect: { email: session.user.email }
                 }

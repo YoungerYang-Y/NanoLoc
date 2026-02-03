@@ -14,7 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, User as UserIcon } from "lucide-react";
 
-export function UserNav() {
+interface UserNavProps {
+    showName?: boolean;
+}
+
+export function UserNav({ showName }: UserNavProps) {
     const { data: session } = useSession();
 
     if (!session?.user) return null;
@@ -24,30 +28,29 @@ export function UserNav() {
         : session.user.email?.substring(0, 2).toUpperCase() || "U";
 
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                        {session.user.image && <AvatarImage src={session.user.image} alt={session.user.name || ""} />}
-                        <AvatarFallback className="bg-indigo-600 text-white">{initials}</AvatarFallback>
-                    </Avatar>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{session.user.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                            {session.user.email}
-                        </p>
+        <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+                <Avatar className="h-8 w-8 border border-gray-700">
+                    {session.user.image && <AvatarImage src={session.user.image} alt={session.user.name || ""} />}
+                    <AvatarFallback className="bg-indigo-600 text-white font-medium text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                {showName && (
+                    <div className="hidden md:flex flex-col">
+                        <span className="text-sm font-medium text-white leading-none">{session.user.name}</span>
+                        <span className="text-xs text-gray-400 leading-none mt-0.5">{session.user.email}</span>
                     </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut()}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+                )}
+            </div>
+            <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+                onClick={() => signOut()}
+                title="Sign out"
+            >
+                <LogOut className="h-4 w-4" />
+                {showName && <span className="ml-2">Sign out</span>}
+            </Button>
+        </div>
     );
 }

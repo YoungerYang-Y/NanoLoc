@@ -3,10 +3,11 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Project } from '@/types';
-import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UserNav } from '@/components/UserNav';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 
 function ProjectList() {
   const { data, isLoading, error } = useQuery<{ projects: Project[] }>({
@@ -38,7 +39,12 @@ function ProjectList() {
         <h3 className="text-lg font-semibold text-white">No projects found</h3>
         <p className="mt-1 text-sm text-gray-400">Get started by creating your first project.</p>
         <div className="mt-6">
-          <CreateProjectDialog />
+          <Link href="/projects/create">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -80,9 +86,13 @@ export default function DashboardPage() {
           </h1>
           <p className="text-gray-400 text-sm">Manage your translation projects</p>
         </div>
-        <div className="flex items-center gap-4">
-          <CreateProjectDialog />
-          <UserNav />
+        <div className="flex items-center gap-2">
+          <Link href="/projects/create">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          </Link>
         </div>
       </div>
       <ProjectList />

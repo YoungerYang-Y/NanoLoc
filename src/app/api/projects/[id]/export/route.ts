@@ -30,15 +30,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // CSV Header
-    const header = ['Key', 'Remarks', project.baseLanguage, ...targetLangs];
+    const header = ['Key', project.baseLanguage, ...targetLangs];
 
     // Rows
     const rows = project.keys.map(key => {
         const row: string[] = [];
         // Key
         row.push(key.stringName);
-        // Remarks
-        row.push(key.remarks || '');
 
         // Base Value
         const baseVal = key.values.find(v => v.languageCode === project.baseLanguage)?.content || '';
@@ -56,23 +54,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Helper to escape CSV
     const escapeCsv = (str: string) => {
         if (str === null || str === undefined) return '';
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-            return `"${str.replace(/"/g, '""')}"`;
+        const stringVal = String(str);
+        if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n') || stringVal.includes('\r')) {
+            return `"${stringVal.replace(/"/g, '""')}"`;
         }
-        return str;
+        return stringVal;
     };
 
-    // Construct CSV String
-    let csvContent = header.map(escapeCsv).join(',') + '\n';
-    rows.forEach(r => {
-        csvContent += r.map(escapeCsv).join(',') + '\n';
-    });
+    try {
+        // Construct CSV String
+        let csvContent = '\uFEFF' + header.map(escapeCsv).join(',') + '\n';
+        rows.forEach(r => {
+            csvContent += r.map(escapeCsv).join(',') + '\n';
+        });
 
-    // Return response with headers for download
-    return new NextResponse(csvContent, {
-        headers: {
-            'Content-Type': 'text/csv; charset=utf-8',
-            'Content-Disposition': `attachment; filename="${project.name}_export.csv"`
-        }
-    });
+        // Sanitize filename: remove non-alphanumeric (except space, dash, underscore, dot)
+        const safeName = project.name.replace(/[^a-z0-9 \-_.]/gi, '_').trim();
+
+        // Return response with headers for download
+        return new NextResponse(csvContent, {
+            headers: {
+                'Content-Type': 'text/csv; charset=utf-8',
+                'Content-Disposition': `attachment; filename="${safeName}_export.csv"`
+            }
+        });
+    } catch (error) {
+        console.error("Export CSV Error:", error);
+        return new NextResponse("Failed to generate CSV", { status: 500 });
+    }
 }
