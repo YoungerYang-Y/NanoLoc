@@ -1,40 +1,89 @@
-import Link from "next/link";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="relative isolate overflow-hidden bg-gray-900 h-screen">
-      <div className="mx-auto max-w-7xl px-6 pb-24 pt-10 sm:pb-32 lg:flex lg:px-8 lg:py-40 h-full items-center">
-        <div className="mx-auto max-w-2xl flex-shrink-0 lg:mx-0 lg:max-w-xl lg:pt-8">
-          <div className="mt-24 sm:mt-32 lg:mt-16">
-            <a href="#" className="inline-flex space-x-6">
-              <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-sm font-semibold leading-6 text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
-                Latest updates
-              </span>
-              <span className="inline-flex items-center space-x-2 text-sm font-medium leading-6 text-gray-300">
-                <span>Just shipped v0.1</span>
-              </span>
-            </a>
-          </div>
-          <h1 className="mt-10 text-4xl font-bold tracking-tight text-white sm:text-6xl">
-            NanoLoc
-          </h1>
-          <p className="mt-6 text-lg leading-8 text-gray-300">
-            A lightweight, format-agnostic i18n management platform.
-            Protect your placeholders, manage translations with AI, and streamline your localization workflow.
-          </p>
-          <div className="mt-10 flex items-center gap-x-6">
-            <Link
-              href="/login"
-              className="rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-            >
-              Get started
-            </Link>
-            <Link href="/login" className="text-sm font-semibold leading-6 text-white">
-              Log in <span aria-hidden="true">→</span>
-            </Link>
-          </div>
+import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { Project } from '@/types';
+import { CreateProjectDialog } from '@/components/CreateProjectDialog';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+
+function ProjectList() {
+  const { data, isLoading, error } = useQuery<{ projects: Project[] }>({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const res = await fetch('/api/projects');
+      if (!res.ok) throw new Error('Failed to fetch projects');
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="animate-pulse bg-gray-800/50 h-40 rounded-lg border border-gray-700"></div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-red-500 bg-red-500/10 p-4 rounded-md">Error loading projects</div>;
+  }
+
+  if (!data?.projects || data.projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] border border-dashed border-gray-700 rounded-lg bg-gray-900/50">
+        <h3 className="text-lg font-semibold text-white">No projects found</h3>
+        <p className="mt-1 text-sm text-gray-400">Get started by creating your first project.</p>
+        <div className="mt-6">
+          <CreateProjectDialog />
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {data.projects.map((project) => (
+        <Link key={project.id} href={`/projects/${project.id}`} className="block transition-transform hover:scale-[1.02]">
+          <Card className="bg-gray-800 border-gray-700 hover:border-indigo-500 hover:shadow-lg transition-all h-full">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-white text-lg">{project.name}</CardTitle>
+                <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">
+                  {project.baseLanguage}
+                </Badge>
+              </div>
+              <CardDescription className="text-gray-400 line-clamp-2 min-h-[2.5rem]">
+                {project.description || "No description"}
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="pt-2 text-xs text-gray-500 border-t border-gray-700/50">
+              Updated {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : 'Never'}
+            </CardFooter>
+          </Card>
+        </Link>
+      ))}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-1">
+            Projects
+          </h1>
+          <p className="text-gray-400 text-sm">Manage your translation projects</p>
+        </div>
+        <div>
+          <CreateProjectDialog />
+        </div>
+      </div>
+      <ProjectList />
+    </main>
   );
 }

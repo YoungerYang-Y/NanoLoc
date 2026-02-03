@@ -31,7 +31,7 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
         const result = updateTermSchema.safeParse(body);
 
         if (!result.success) {
-            return NextResponse.json({ error: result.error.errors }, { status: 400 });
+            return NextResponse.json({ error: result.error.issues }, { status: 400 });
         }
 
         const { stringName, remarks, values } = result.data;

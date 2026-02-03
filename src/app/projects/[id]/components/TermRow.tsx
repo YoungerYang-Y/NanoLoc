@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Edit2, Trash2, Save, X, Check, Wand2, Copy } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface TermRowProps {
     term: {
@@ -131,72 +133,75 @@ export function TermRow({ term, projectId, baseLanguage, targetLanguages }: Term
 
     if (isEditing) {
         return (
-            <tr className="bg-gray-800/50">
+            <tr className="bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
                 <td className="p-4 align-top">
-                    <input
-                        type="text"
+                    <Input
                         value={formData.stringName}
                         onChange={(e) => setFormData(p => ({ ...p, stringName: e.target.value }))}
-                        className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-indigo-500 truncate"
+                        className="bg-gray-900 border-gray-700 text-white h-auto py-2"
                     />
                 </td>
                 <td className="p-4 align-top relative group/base">
-                    <textarea
+                    <Textarea
                         value={formData.values[baseLanguage] || ''}
                         onChange={(e) => handleValueChange(baseLanguage, e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-indigo-500 min-h-[4rem]"
+                        className="bg-gray-900 border-gray-700 text-white min-h-[4rem]"
                     />
-                    <button
+                    <Button
+                        variant="ghost" size="icon"
                         onClick={handleCopyToAll}
-                        className="absolute bottom-5 right-5 p-1 bg-gray-800 rounded-md text-gray-400 hover:text-white opacity-0 group-hover/base:opacity-100 transition-opacity"
+                        className="absolute bottom-5 right-5 h-6 w-6 text-gray-400 hover:text-white opacity-0 group-hover/base:opacity-100 transition-opacity"
                         title="Copy to all empty"
                         type="button"
                     >
-                        <Copy className="w-4 h-4" />
-                    </button>
+                        <Copy className="w-3 h-3" />
+                    </Button>
                 </td>
                 {targetLanguages.map(lang => (
                     <td key={lang} className="p-4 align-top hidden xl:table-cell relative group/cell">
-                        <textarea
+                        <Textarea
                             value={formData.values[lang] || ''}
                             onChange={(e) => handleValueChange(lang, e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-indigo-500 min-h-[4rem]"
+                            className="bg-gray-900 border-gray-700 text-white min-h-[4rem]"
                         />
-                        <button
+                        <Button
+                            variant="ghost" size="icon"
                             onClick={() => handleTranslate(lang)}
                             disabled={translating === lang}
-                            className="absolute bottom-5 right-5 p-1 bg-gray-800 rounded-md text-indigo-400 hover:text-indigo-300 opacity-0 group-hover/cell:opacity-100 transition-opacity disabled:opacity-50"
+                            className="absolute bottom-5 right-5 h-6 w-6 text-indigo-400 hover:text-indigo-300 opacity-0 group-hover/cell:opacity-100 transition-opacity disabled:opacity-50"
                             title="AI Translate"
                             type="button"
                         >
-                            <Wand2 className={`w-4 h-4 ${translating === lang ? 'animate-pulse' : ''}`} />
-                        </button>
+                            <Wand2 className={`w-3 h-3 ${translating === lang ? 'animate-pulse' : ''}`} />
+                        </Button>
                     </td>
                 ))}
                 <td className="p-4 align-top hidden md:table-cell">
-                    <textarea
+                    <Textarea
                         value={formData.remarks}
                         onChange={(e) => setFormData(p => ({ ...p, remarks: e.target.value }))}
-                        className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-gray-400 focus:ring-1 focus:ring-indigo-500 min-h-[4rem]"
+                        className="bg-gray-900 border-gray-700 text-gray-400 min-h-[4rem]"
                     />
                 </td>
                 <td className="p-4 text-right align-top">
-                    <div className="flex justify-end gap-2">
-                        <button
+                    <div className="flex justify-end gap-1">
+                        <Button
+                            variant="ghost" size="icon"
                             onClick={handleSave}
                             disabled={updateMutation.isPending}
-                            className="text-green-400 hover:text-green-300 p-1"
+                            className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
                             title="Save"
                         >
-                            <Check className="w-5 h-5" />
-                        </button>
-                        <button
+                            <Check className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            variant="ghost" size="icon"
                             onClick={() => setIsEditing(false)}
-                            className="text-gray-400 hover:text-gray-300 p-1"
+                            className="text-gray-400 hover:text-gray-300 hover:bg-gray-700"
                             title="Cancel"
                         >
-                            <X className="w-5 h-5" />
-                        </button>
+                            <X className="w-4 h-4" />
+                        </Button>
                     </div>
                 </td>
             </tr>
@@ -204,7 +209,7 @@ export function TermRow({ term, projectId, baseLanguage, targetLanguages }: Term
     }
 
     return (
-        <tr className="hover:bg-gray-800/50 transition-colors group">
+        <tr className="hover:bg-gray-800/50 transition-colors group border-b border-gray-800 last:border-0">
             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6 max-w-xs break-all truncate align-top">
                 <div className="truncate" title={term.stringName}>{term.stringName}</div>
             </td>
@@ -223,22 +228,24 @@ export function TermRow({ term, projectId, baseLanguage, targetLanguages }: Term
                 {term.remarks}
             </td>
             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 align-top opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
+                <Button
+                    variant="ghost" size="icon"
                     onClick={() => setIsEditing(true)}
-                    className="text-indigo-400 hover:text-indigo-300 mr-2"
+                    className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-400/10 mr-1"
                     title="Edit"
                 >
                     <Edit2 className="w-4 h-4" />
-                </button>
-                <button
+                </Button>
+                <Button
+                    variant="ghost" size="icon"
                     onClick={() => {
                         if (confirm('Delete this term?')) deleteMutation.mutate();
                     }}
-                    className="text-red-400 hover:text-red-300"
+                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
                     title="Delete"
                 >
                     <Trash2 className="w-4 h-4" />
-                </button>
+                </Button>
             </td>
         </tr>
     );

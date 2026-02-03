@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         const result = createProjectSchema.safeParse(body);
 
         if (!result.success) {
-            return NextResponse.json({ error: result.error.errors }, { status: 400 });
+            return NextResponse.json({ error: result.error.issues }, { status: 400 });
         }
 
         const { name, description, baseLanguage, targetLanguages, aiBaseUrl, aiApiKey, aiModelId } = result.data;

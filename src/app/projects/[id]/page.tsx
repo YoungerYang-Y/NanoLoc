@@ -7,8 +7,11 @@ import Link from 'next/link';
 import { Project } from '@/types';
 import { TermRow } from './components/TermRow';
 import { CreateTermRow } from './components/CreateTermRow';
-// Lucide icons imports (assuming lucide-react is installed as per previous summary)
-import { Search, Upload, Plus, Globe, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Upload, Plus, ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 interface TranslationValue {
     id: string;
@@ -42,7 +45,6 @@ export default function ProjectDetailPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [isCreating, setIsCreating] = useState(false);
-    const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch Project Info
@@ -72,6 +74,7 @@ export default function ProjectDetailPage() {
     });
 
     const project = projectData?.project;
+    // Assuming targetLanguages is a JSON string of array
     const targetLangs = project?.targetLanguages ? JSON.parse(project.targetLanguages) : [];
 
     // Import Mutation
@@ -97,7 +100,7 @@ export default function ProjectDetailPage() {
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            if (confirm(`Import ${e.target.files[0].name}?`)) {
+            if (confirm(`Import ${e.target.files[0].name}? This will merge existing keys and move old content to remarks.`)) {
                 importMutation.mutate(e.target.files[0]);
             }
         }
@@ -110,15 +113,22 @@ export default function ProjectDetailPage() {
             {/* Header */}
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <Link href="/projects" className="text-gray-400 hover:text-white text-sm">Projects</Link>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                            <Home className="h-4 w-4" />
+                        </Link>
                         <span className="text-gray-600">/</span>
                         <span className="text-gray-200 text-sm font-medium">{project?.name}</span>
                     </div>
-                    <h1 className="text-2xl font-bold leading-7 text-white sm:truncate sm:text-3xl sm:tracking-tight">
-                        {project?.name || 'Loading...'}
-                    </h1>
-                    <p className="mt-1 text-sm text-gray-400">{project?.description}</p>
+                    <div className="flex items-baseline gap-4">
+                        <h1 className="text-3xl font-bold tracking-tight text-white">
+                            {project?.name || 'Loading...'}
+                        </h1>
+                        <Badge variant="outline" className="text-gray-400 border-gray-600">
+                            {project?.baseLanguage || 'en-US'}
+                        </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-400 max-w-2xl">{project?.description}</p>
                 </div>
                 <div className="flex gap-3">
                     <input
@@ -128,21 +138,21 @@ export default function ProjectDetailPage() {
                         ref={fileInputRef}
                         onChange={handleFileUpload}
                     />
-                    <button
+                    <Button
+                        variant="secondary"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={importMutation.isPending}
-                        className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
                     >
-                        <Upload className="h-4 w-4" />
+                        <Upload className="h-4 w-4 mr-2" />
                         {importMutation.isPending ? 'Importing...' : 'Import XML'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => setIsCreating(true)}
-                        className="inline-flex items-center gap-2 rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white"
                     >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 mr-2" />
                         New Term
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -150,11 +160,11 @@ export default function ProjectDetailPage() {
             <div className="mb-6 flex gap-4">
                 <div className="relative flex-1 max-w-md">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                        <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                        <Search className="h-4 w-4 text-gray-500" aria-hidden="true" />
                     </div>
-                    <input
+                    <Input
                         type="text"
-                        className="block w-full rounded-md border-0 bg-gray-800 py-2 pl-10 text-white shadow-sm ring-1 ring-inset ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                        className="pl-10 bg-gray-900 border-gray-700 text-white"
                         placeholder="Search terms, values, or remarks..."
                         value={search}
                         onChange={(e) => {
@@ -166,116 +176,88 @@ export default function ProjectDetailPage() {
             </div>
 
             {/* Table */}
-            <div className="mt-8 flow-root">
-                <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg border border-gray-700 bg-gray-900/50">
-                            <table className="min-w-full divide-y divide-gray-800">
-                                <thead className="bg-gray-800">
-                                    <tr>
-                                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6 w-48">
-                                            Key
-                                        </th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white w-64">
-                                            {project?.baseLanguage || 'Base'}
-                                        </th>
-                                        {/* Render Target Language Columns */}
-                                        {targetLangs.map((lang: string) => (
-                                            <th key={lang} scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white w-64 hidden xl:table-cell">
-                                                {lang}
-                                            </th>
-                                        ))}
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white hidden md:table-cell">
-                                            Remarks
-                                        </th>
-                                        <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                                            <span className="sr-only">Edit</span>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-800 bg-gray-900">
-                                    {isCreating && (
-                                        <CreateTermRow
-                                            projectId={projectId}
-                                            baseLanguage={project?.baseLanguage || 'en-US'}
-                                            targetLanguages={targetLangs}
-                                            onCancel={() => setIsCreating(false)}
-                                            onSuccess={() => setIsCreating(false)}
-                                        />
-                                    )}
-                                    {isLoading ? (
-                                        <tr><td colSpan={10} className="text-center py-10 text-gray-400">Loading terms...</td></tr>
-                                    ) : termsData?.data.length === 0 && !isCreating ? (
-                                        <tr><td colSpan={10} className="text-center py-10 text-gray-400">No terms found</td></tr>
-                                    ) : (
-                                        termsData?.data.map((term) => (
-                                            <TermRow
-                                                key={term.id}
-                                                term={term}
-                                                projectId={projectId}
-                                                baseLanguage={project?.baseLanguage || 'en-US'}
-                                                targetLanguages={targetLangs}
-                                            />
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+            <div className="rounded-md border border-gray-700 bg-gray-900/50 overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-gray-800">
+                        <TableRow className="border-gray-700 hover:bg-gray-800">
+                            <TableHead className="text-gray-300 w-48">Key</TableHead>
+                            <TableHead className="text-gray-300 w-64">{project?.baseLanguage || 'Base'}</TableHead>
+                            {targetLangs.map((lang: string) => (
+                                <TableHead key={lang} className="text-gray-300 w-64 hidden xl:table-cell">{lang}</TableHead>
+                            ))}
+                            <TableHead className="text-gray-300 hidden md:table-cell">Remarks</TableHead>
+                            <TableHead className="w-[100px]"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isCreating && (
+                            <CreateTermRow
+                                projectId={projectId}
+                                baseLanguage={project?.baseLanguage || 'en-US'}
+                                targetLanguages={targetLangs}
+                                onCancel={() => setIsCreating(false)}
+                                onSuccess={() => setIsCreating(false)}
+                            />
+                        )}
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={10} className="h-24 text-center text-gray-400">
+                                    Loading terms...
+                                </TableCell>
+                            </TableRow>
+                        ) : termsData?.data.length === 0 && !isCreating ? (
+                            <TableRow>
+                                <TableCell colSpan={10} className="h-24 text-center text-gray-400">
+                                    No terms found
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            termsData?.data.map((term) => (
+                                <TermRow
+                                    key={term.id}
+                                    term={term}
+                                    projectId={projectId}
+                                    baseLanguage={project?.baseLanguage || 'en-US'}
+                                    targetLanguages={targetLangs}
+                                />
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Pagination */}
+            {termsData?.meta && (
+                <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-4 py-3 sm:px-6 mt-4 rounded-b-md">
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm text-gray-400">
+                                Showing <span className="font-medium">{(page - 1) * 20 + 1}</span> to <span className="font-medium">{Math.min(page * 20, termsData.meta.total)}</span> of <span className="font-medium">{termsData.meta.total}</span> results
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+                            >
+                                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(termsData.meta.totalPages, p + 1))}
+                                disabled={page === termsData.meta.totalPages}
+                                className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+                            >
+                                Next <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
                         </div>
                     </div>
                 </div>
-
-                {/* Pagination */}
-                {termsData?.meta && (
-                    <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-4 py-3 sm:px-6 mt-4">
-                        <div className="flex flex-1 justify-between sm:hidden">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="relative inline-flex items-center rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50"
-                            >
-                                Previous
-                            </button>
-                            <button
-                                onClick={() => setPage(p => Math.min(termsData.meta.totalPages, p + 1))}
-                                disabled={page === termsData.meta.totalPages}
-                                className="relative ml-3 inline-flex items-center rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50"
-                            >
-                                Next
-                            </button>
-                        </div>
-                        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                            <div>
-                                <p className="text-sm text-gray-400">
-                                    Showing <span className="font-medium">{(page - 1) * 20 + 1}</span> to <span className="font-medium">{Math.min(page * 20, termsData.meta.total)}</span> of <span className="font-medium">{termsData.meta.total}</span> results
-                                </p>
-                            </div>
-                            <div>
-                                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-700 hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                                    >
-                                        <span className="sr-only">Previous</span>
-                                        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                                    </button>
-                                    <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-gray-700 focus:outline-offset-0">
-                                        {page}
-                                    </span>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(termsData.meta.totalPages, p + 1))}
-                                        disabled={page === termsData.meta.totalPages}
-                                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-700 hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                                    >
-                                        <span className="sr-only">Next</span>
-                                        <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                                    </button>
-                                </nav>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+            )}
         </main>
     );
 }

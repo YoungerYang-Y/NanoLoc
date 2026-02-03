@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, X, Check } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface CreateTermRowProps {
     projectId: string;
@@ -64,58 +67,60 @@ export function CreateTermRow({ projectId, baseLanguage, targetLanguages, onCanc
     return (
         <tr className="bg-indigo-900/20 border-b border-indigo-500/30">
             <td className="p-4 align-top">
-                <input
+                <Input
                     type="text"
                     value={formData.stringName}
                     onChange={(e) => setFormData(p => ({ ...p, stringName: e.target.value }))}
                     placeholder="Key Name"
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-indigo-500"
+                    className="bg-gray-900 border-gray-600 text-white h-auto py-2"
                     autoFocus
                 />
             </td>
             <td className="p-4 align-top">
-                <textarea
+                <Textarea
                     value={formData.values[baseLanguage] || ''}
                     onChange={(e) => handleValueChange(baseLanguage, e.target.value)}
                     placeholder="Base Value"
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-indigo-500 min-h-[4rem]"
+                    className="bg-gray-900 border-gray-600 text-white min-h-[4rem]"
                 />
             </td>
             {targetLanguages.map(lang => (
                 <td key={lang} className="p-4 align-top hidden xl:table-cell">
-                    <textarea
+                    <Textarea
                         value={formData.values[lang] || ''}
                         onChange={(e) => handleValueChange(lang, e.target.value)}
                         placeholder={lang}
-                        className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-indigo-500 min-h-[4rem]"
+                        className="bg-gray-900 border-gray-600 text-white min-h-[4rem]"
                     />
                 </td>
             ))}
             <td className="p-4 align-top hidden md:table-cell">
-                <textarea
+                <Textarea
                     value={formData.remarks}
                     onChange={(e) => setFormData(p => ({ ...p, remarks: e.target.value }))}
                     placeholder="Remarks"
-                    className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-gray-400 focus:ring-1 focus:ring-indigo-500 min-h-[4rem]"
+                    className="bg-gray-900 border-gray-600 text-gray-400 min-h-[4rem]"
                 />
             </td>
             <td className="p-4 text-right align-top">
-                <div className="flex justify-end gap-2">
-                    <button
+                <div className="flex justify-end gap-1">
+                    <Button
+                        variant="ghost" size="icon"
                         onClick={handleSave}
                         disabled={createMutation.isPending}
-                        className="text-green-400 hover:text-green-300 p-1 bg-gray-800 rounded shadow-sm"
+                        className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
                         title="Create"
                     >
-                        <Check className="w-5 h-5" />
-                    </button>
-                    <button
+                        <Check className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost" size="icon"
                         onClick={onCancel}
-                        className="text-gray-400 hover:text-gray-300 p-1 bg-gray-800 rounded shadow-sm"
+                        className="text-gray-400 hover:text-gray-300 hover:bg-gray-700"
                         title="Cancel"
                     >
-                        <X className="w-5 h-5" />
-                    </button>
+                        <X className="w-4 h-4" />
+                    </Button>
                 </div>
             </td>
         </tr>
