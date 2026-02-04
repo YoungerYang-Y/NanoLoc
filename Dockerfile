@@ -31,8 +31,8 @@ ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
-# Install openssl for Prisma
-RUN apk add --no-cache openssl
+# Install openssl for Prisma and su-exec for user switching
+RUN apk add --no-cache openssl su-exec
 
 # Don't run as root
 RUN addgroup --system --gid 1001 nodejs
@@ -53,10 +53,11 @@ COPY --from=builder /app/prisma ./prisma
 # Copy start script
 COPY --from=builder /app/scripts/start.sh ./scripts/start.sh
 
-# Grant execute permission (if not already)
-RUN chmod +x ./scripts/start.sh
+# Grant execute permission and fix CRLF (Windows) line endings
+RUN chmod +x ./scripts/start.sh && sed -i 's/\r$//' ./scripts/start.sh
 
-USER nextjs
+# Run as root initially to fix permissions, then switch to nextjs in entrypoint
+# USER nextjs
 
 EXPOSE 3000
 
