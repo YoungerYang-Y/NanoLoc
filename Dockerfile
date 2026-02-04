@@ -23,12 +23,16 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production image, copy all the files and run next
+# Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED 1
+
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
 
 # Don't run as root
 RUN addgroup --system --gid 1001 nodejs
@@ -44,10 +48,13 @@ RUN chown nextjs:nodejs .next
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Copy prisma definition for reference or runtime use
+# Copy prisma schema/migrations for deployment
 COPY --from=builder /app/prisma ./prisma
-# Copy .env if it exists (but usually passed at runtime)
-# COPY .env .env
+# Copy start script
+COPY --from=builder /app/scripts/start.sh ./scripts/start.sh
+
+# Grant execute permission (if not already)
+RUN chmod +x ./scripts/start.sh
 
 USER nextjs
 
@@ -57,4 +64,4 @@ ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["./scripts/start.sh"]
