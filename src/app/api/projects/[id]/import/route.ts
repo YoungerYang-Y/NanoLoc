@@ -20,7 +20,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const user = project.users.find(u => u.email.toLowerCase() === session.user?.email?.toLowerCase());
     if (!user) {
-        console.error(`Import Forbidden: User ${session.user?.email} not found in project ${projectId}. Project users: ${project.users.map(u => u.email).join(', ')}`);
         return NextResponse.json({ error: "Forbidden: User not found in project" }, { status: 403 });
     }
 
@@ -36,85 +35,105 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const parser = new AndroidXmlParser();
         const parsedStrings = parser.parse(text);
 
+        // 1. Bulk Fetch Existing Keys
+        // Extract all stringNames from the uploaded file
+        const xmlStringNames = parsedStrings.map(s => s.name);
+
+        // Fetch all existing keys that match these names in this project
+        const existingKeys = await prisma.translationKey.findMany({
+            where: {
+                projectId: projectId,
+                stringName: { in: xmlStringNames }
+            },
+            include: {
+                values: true
+            }
+        });
+
+        // Create a Map for O(1) lookup
+        // Map<stringName, TranslationKey>
+        const existingMap = new Map();
+        existingKeys.forEach(k => existingMap.set(k.stringName, k));
+
         let added = 0;
         let updated = 0;
         let skipped = 0;
 
+        const operations: any[] = [];
+
+        // 2. In-Memory Comparison & Operation Prep
         for (const item of parsedStrings) {
             const { name: stringName, value: content } = item;
-
-            // Check existing Key
-            const existingKey = await prisma.translationKey.findUnique({
-                where: {
-                    projectId_stringName: {
-                        projectId,
-                        stringName
-                    }
-                },
-                include: {
-                    values: true
-                }
-            });
+            const existingKey = existingMap.get(stringName);
 
             if (existingKey) {
-                // Check base language value
-                const baseValue = existingKey.values.find(v => v.languageCode === project.baseLanguage);
+                // Key Exists
+                const baseValue = existingKey.values.find((v: any) => v.languageCode === project.baseLanguage);
 
                 if (baseValue) {
                     if (baseValue.content !== content) {
-                        // Conflict! Update value and add remark
+                        // Conflict: Content changed
                         const oldContent = baseValue.content;
                         const newRemark = `[Old Value]: ${oldContent} -- Updated at ${new Date().toISOString()}`;
 
-                        await prisma.translationValue.update({
+                        // Update Value
+                        operations.push(prisma.translationValue.update({
                             where: { id: baseValue.id },
                             data: {
                                 content,
-                                lastModifiedById: user.id // Audit
+                                lastModifiedById: user.id
                             }
-                        });
+                        }));
 
-                        await prisma.translationKey.update({
+                        // Update Key Remarks
+                        operations.push(prisma.translationKey.update({
                             where: { id: existingKey.id },
                             data: {
                                 remarks: existingKey.remarks ? existingKey.remarks + "\n" + newRemark : newRemark,
-                                lastModifiedById: user.id // Audit
+                                lastModifiedById: user.id
                             }
-                        });
+                        }));
                         updated++;
                     } else {
-                        skipped++; // Identical
+                        // Content identical
+                        skipped++;
                     }
                 } else {
-                    // Key exists but no base value? (Should not happen usually but handle it)
-                    await prisma.translationValue.create({
+                    // Key exists but Base Value missing (Create Value)
+                    operations.push(prisma.translationValue.create({
                         data: {
                             translationKeyId: existingKey.id,
                             languageCode: project.baseLanguage,
                             content,
-                            lastModifiedById: user.id // Audit
+                            lastModifiedById: user.id
                         }
-                    });
-                    updated++;
+                    }));
+                    updated++; // Count as update/add content
                 }
             } else {
-                // New Key
-                await prisma.translationKey.create({
+                // New Key (Create Key + Value)
+                // Note: creating keys individually in transaction is fine.
+                operations.push(prisma.translationKey.create({
                     data: {
-                        projectId, // Use 'id' here
+                        projectId,
                         stringName,
-                        lastModifiedById: user.id, // Audit
+                        lastModifiedById: user.id,
                         values: {
                             create: {
                                 languageCode: project.baseLanguage,
                                 content,
-                                lastModifiedById: user.id // Audit
+                                lastModifiedById: user.id
                             }
                         }
                     }
-                });
+                }));
                 added++;
             }
+        }
+
+        // 3. Execute Transaction
+        if (operations.length > 0) {
+            await prisma.$transaction(operations);
         }
 
         return NextResponse.json({ success: true, added, updated, skipped });
