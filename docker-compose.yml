@@ -7,6 +7,7 @@ services:
       - ./data:/app/prisma/data
     environment:
       - DATABASE_URL=file:/app/prisma/data/dev.db
-      - NEXTAUTH_SECRET=changeme
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_TRUST_HOST=true
       - NEXTAUTH_URL=http://localhost:3000
       - HOSTNAME=0.0.0.0
